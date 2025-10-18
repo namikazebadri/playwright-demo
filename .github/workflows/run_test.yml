@@ -46,13 +46,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       # 7️⃣ Install Allure CLI
-      - name: Install Allure
+      - name: Install Allure CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y unzip wget
-          wget https://github.com/allure-framework/allure2/releases/download/2.28.1/allure-2.28.1.zip -O allure.zip
-          unzip allure.zip -d $HOME/.allure
-          echo "$HOME/.allure/allure-2.28.1/bin" >> $GITHUB_PATH
+          wget https://github.com/allure-framework/allure2/releases/latest/download/allure-2.35.1.tgz -O allure.tgz
+          mkdir -p $HOME/.allure
+          tar -xvzf allure.tgz -C $HOME/.allure
+          echo "$HOME/.allure/allure-2.35.1/bin" >> $GITHUB_PATH
 
       # 8️⃣ Run Maven tests (headless mode)
       - name: Run tests
