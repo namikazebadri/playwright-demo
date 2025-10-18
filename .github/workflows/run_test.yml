@@ -97,4 +97,5 @@ jobs:
       - name: Upload report to S3
         run: |
           aws s3 sync target/allure-report \
-            s3://badri-playwright-report-s3/beautyhaul/$BUILD_DATE/${{ github.sha }}/ --delete
+            s3://badri-playwright-report-s3/beautyhaul/$BUILD_DATE/${{ github.sha }}/ \
+            --acl public-read --delete
