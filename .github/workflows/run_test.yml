@@ -82,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
-          path: target/allure-report
+          path: target
 
       - name: Download artifact
         uses: actions/download-artifact@v5
