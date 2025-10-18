@@ -39,7 +39,7 @@ jobs:
 
       # 5️⃣ Install Playwright browsers
       - name: Install Playwright Browsers
-        run: mvn exec:java -Dexec.mainClass="com.microsoft.playwright.CLIInstall"
+        run: mvn exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install"
 
       # 6️⃣ Install ffmpeg (untuk convert webm -> mp4)
       - name: Install FFmpeg
