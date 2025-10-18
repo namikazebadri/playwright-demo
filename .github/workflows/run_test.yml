@@ -16,6 +16,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set build date
+        run: echo "BUILD_DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       - name: Setup JDK 21
         uses: actions/setup-java@v3
         with:
@@ -84,7 +87,15 @@ jobs:
           name: allure-report
           path: target
 
-      - name: Download artifact
-        uses: actions/download-artifact@v5
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          name: allure-report
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload report to S3
+        run: |
+          aws s3 sync target/allure-report \
+            s3://badri-playwright-report-s3/beautyhaul/$BUILD_DATE/${{ github.sha }}/ \
+            --acl public-read --delete
