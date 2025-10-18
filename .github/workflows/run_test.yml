@@ -1,0 +1,80 @@
+name: Playwright Java Tests with Allure
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2️⃣ Setup JDK 17
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 3️⃣ Cache Maven
+      - name: Cache Maven
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # 4️⃣ Install Maven (Ubuntu sudah ada, optional)
+      - name: Install Maven
+        run: sudo apt-get install -y maven
+
+      # 5️⃣ Install Playwright browsers
+      - name: Install Playwright Browsers
+        run: mvn exec:java -Dexec.mainClass="com.microsoft.playwright.CLIInstall"
+
+      # 6️⃣ Install ffmpeg (untuk convert webm -> mp4)
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      # 7️⃣ Install Allure CLI
+      - name: Install Allure
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip wget
+          wget https://github.com/allure-framework/allure2/releases/download/2.28.1/allure-2.28.1.zip -O allure.zip
+          unzip allure.zip -d $HOME/.allure
+          echo "$HOME/.allure/allure-2.28.1/bin" >> $GITHUB_PATH
+
+      # 8️⃣ Run Maven tests (headless mode)
+      - name: Run tests
+        run: mvn clean test
+
+      # 9️⃣ Convert .webm videos to .mp4 (optional)
+      - name: Convert videos to mp4
+        run: |
+          mkdir -p target/videos_mp4
+          for f in target/videos/*.webm; do
+            name=$(basename "$f" .webm)
+            ffmpeg -y -i "$f" -c:v libx264 -preset fast -crf 18 -r 30 -pix_fmt yuv420p "target/videos_mp4/$name.mp4"
+          done
+
+      # 🔟 Generate Allure report
+      - name: Generate Allure report
+        run: |
+          allure generate target/allure-results --clean -o target/allure-report
+
+      # 1️⃣1️⃣ Upload Allure report as artifact
+      - name: Upload Allure Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-report
+          path: target/allure-report
