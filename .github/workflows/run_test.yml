@@ -12,49 +12,44 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set build date
         run: echo "BUILD_DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Cache Maven
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Install Maven
-        run: sudo apt-get install -y maven
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('**/pom.xml') }}
 
-      - name: Install Playwright Browsers
-        run: mvn exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install"
-
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
-      - name: Install Allure CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget
-          wget https://github.com/allure-framework/allure2/releases/latest/download/allure-2.35.1.tgz -O allure.tgz
-          mkdir -p $HOME/.allure
-          tar -xvzf allure.tgz -C $HOME/.allure
-          echo "$HOME/.allure/allure-2.35.1/bin" >> $GITHUB_PATH
-
-      - name: Install Playwright dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            ffmpeg \
+            unzip \
+            wget \
             libwoff1 \
             libevent-2.1-7t64 \
             libgstreamer-plugins-base1.0-0 \
@@ -66,10 +61,22 @@ jobs:
             libmanette-0.2-0 \
             libgles2
 
+      - name: Install Playwright Browsers
+        run: mvn exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install" --no-transfer-progress
+
+      - name: Install Allure CLI
+        run: |
+          ALLURE_VERSION=2.35.1
+          wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz -O allure.tgz
+          mkdir -p $HOME/.allure
+          tar -xvzf allure.tgz -C $HOME/.allure
+          echo "$HOME/.allure/allure-${ALLURE_VERSION}/bin" >> $GITHUB_PATH
+
       - name: Run tests
-        run: mvn clean test -Dmaven.test.failure.ignore=true
+        run: mvn clean test -Dmaven.test.failure.ignore=true --no-transfer-progress
 
       - name: Convert videos to mp4
+        if: always()
         run: |
           mkdir -p target/videos_mp4
           for f in target/videos/*.webm; do
@@ -78,23 +85,25 @@ jobs:
           done
 
       - name: Generate Allure report
-        run: |
-          allure generate target/allure-results --clean -o target/allure-report
+        if: always()
+        run: allure generate target/allure-results --clean -o target/allure-report
 
       - name: Upload artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: target/allure-report
 
       - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v2
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
       - name: Upload report to S3
+        if: always()
         run: |
           aws s3 sync target/allure-report \
             s3://badri-playwright-report-s3/beautyhaul/$BUILD_DATE/${{ github.sha }}/ \
